@@ -2,19 +2,9 @@
 
 import { useCart } from '@/context/CartContext';
 import CheckoutModal from '@/components/CheckoutModal';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import dynamic from 'next/dynamic';
-
-// Dynamically import LeafletMapPicker on client side only (Leaflet requires `window`)
-const LeafletMapPicker = dynamic(() => import('@/components/LeafletMapPicker'), {
-  ssr: false,
-  loading: () => (
-    <div className="p-8 text-center text-xs text-slate-500 bg-slate-50 rounded-3xl border border-slate-200 animate-pulse">
-      🗺️ Loading OpenStreetMap...
-    </div>
-  ),
-});
+import AddressSearchPicker from '@/components/AddressSearchPicker';
 
 export default function CartDrawer() {
   const {
@@ -28,6 +18,7 @@ export default function CartDrawer() {
     removeFromCart,
     formatPrice,
     locationStatus,
+    requestLocation,
     setManualLocation,
     lat,
     lng,
@@ -37,8 +28,15 @@ export default function CartDrawer() {
   } = useCart();
 
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [showAddressSearch, setShowAddressSearch] = useState(false);
   const pathname = usePathname();
+
+  // Automatically request real-time GPS location as soon as cart is opened if not determined yet
+  useEffect(() => {
+    if (isCartOpen && (locationStatus === 'idle' || (!lat && !lng && locationStatus !== 'denied' && locationStatus !== 'unavailable'))) {
+      requestLocation();
+    }
+  }, [isCartOpen, locationStatus, lat, lng, requestLocation]);
 
   // Never render cart drawer in admin or ops portals
   if (pathname?.startsWith('/mshsuper') || pathname?.startsWith('/ops')) {
@@ -59,7 +57,7 @@ export default function CartDrawer() {
   );
 
   // STRICT REQUIREMENT: If location is denied or unavailable, checkout remains disabled
-  // until the user provides coordinates either via GPS or by picking on OpenStreetMap
+  // until the user provides coordinates either via GPS or address search
   const hasValidCoordinates = lat !== 0 && lng !== 0;
   const hasLocationGranted = hasValidCoordinates && (locationStatus === 'granted' || locationStatus === 'out_of_zone');
   const canCheckout = cartEntries.length > 0 && !isOperationallyClosed && hasLocationGranted;
@@ -69,10 +67,15 @@ export default function CartDrawer() {
     setIsCartOpen(false);
   }
 
-  function handleMapConfirm(coords: { lat: number; lng: number; address: string }) {
+  function handleAddressSelect(coords: { lat: number; lng: number; address: string }) {
     setManualLocation(coords.lat, coords.lng, coords.address);
-    setShowMapPicker(false);
+    setShowAddressSearch(false);
   }
+
+  // KEY REQUIREMENT: ONLY show the address search input if user explicitly declined/failed real-time location (denied/unavailable)
+  // or if they explicitly click "Change Address"
+  const isLocationDeclined = locationStatus === 'denied' || locationStatus === 'unavailable';
+  const isSearchActive = showAddressSearch || (cartEntries.length > 0 && isLocationDeclined && !hasValidCoordinates);
 
   return (
     <>
@@ -111,58 +114,55 @@ export default function CartDrawer() {
             {/* Body */}
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3">
 
-              {/* Fulfillment Mode Badge */}
+              {/* Fulfillment Mode & Location Bar */}
               {cartEntries.length > 0 && (
                 <div className="flex items-center justify-between py-1">
-                  {fulfillmentMode === 'NOW' ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      Kitchen Open · Delivering in 30–45 mins
-                    </span>
-                  ) : (
+                  {fulfillmentMode === 'PRE_ORDER' ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                       <span className="w-2 h-2 rounded-full bg-amber-500" />
                       Pre-Order · Opens at {scheduledTime || '06:00 AM'}
                     </span>
+                  ) : (
+                    <div />
                   )}
 
                   {hasValidCoordinates && (
                     <button
-                      onClick={() => setShowMapPicker(true)}
+                      onClick={() => setShowAddressSearch((prev) => !prev)}
                       className="text-[11px] font-bold text-[#e31b23] hover:underline"
                     >
-                      Change Spot 📍
+                      {isSearchActive ? 'Close Search ✕' : 'Change Address 📍'}
                     </button>
                   )}
                 </div>
               )}
 
-              {/* Location banner — only when attention is needed */}
-              {showLocationBanner && !showMapPicker && (() => {
+              {/* Location banner — only when attention is needed and search is not already active */}
+              {showLocationBanner && !isSearchActive && (() => {
                 const cfg = {
                   requesting: {
-                    icon: '📍', color: 'bg-amber-50 border-amber-300 text-amber-800',
-                    title: 'Requesting Location…',
-                    body: 'Please allow browser location access so we can calculate delivery.',
+                    icon: '📍', color: 'bg-amber-50 border-amber-300 text-amber-900',
+                    title: 'Getting Real-Time Location…',
+                    body: 'Please tap "Allow" on your browser location prompt so we can deliver right to your door.',
                     action: null,
                   },
                   denied: {
                     icon: '🚫', color: 'bg-red-50 border-red-300 text-red-800',
                     title: 'Location Permission Denied',
-                    body: 'Location access was denied. Please pick your delivery location on our interactive map to continue to checkout.',
-                    action: { label: '🗺️ Pick Location on Map →', fn: () => setShowMapPicker(true) },
+                    body: 'Location access was denied. Search your delivery address (e.g. house number, crescent, or estate) below to continue.',
+                    action: { label: '🔍 Search Delivery Address →', fn: () => setShowAddressSearch(true) },
                   },
                   unavailable: {
                     icon: '⚠️', color: 'bg-red-50 border-red-300 text-red-800',
                     title: 'Location Unavailable',
-                    body: 'GPS is not available on this device. Please select your spot on the map below.',
-                    action: { label: '🗺️ Open Map Picker →', fn: () => setShowMapPicker(true) },
+                    body: 'GPS is not available on this device. Search your delivery address below.',
+                    action: { label: '🔍 Search Delivery Address →', fn: () => setShowAddressSearch(true) },
                   },
                   out_of_zone: {
                     icon: '🌍', color: 'bg-orange-50 border-orange-300 text-orange-800',
                     title: 'Outside Direct Delivery Zone',
-                    body: 'You can still place your order! Pick your location on the map and our team will verify availability.',
-                    action: { label: '🗺️ Adjust Pin on Map →', fn: () => setShowMapPicker(true) },
+                    body: 'You can still place your order! Search and select your delivery address below.',
+                    action: { label: '🔍 Adjust Delivery Address →', fn: () => setShowAddressSearch(true) },
                   },
                 } as const;
                 const c = cfg[locationStatus as keyof typeof cfg];
@@ -188,37 +188,41 @@ export default function CartDrawer() {
                 );
               })()}
 
-              {/* Interactive OpenStreetMap Leaflet Picker */}
-              {showMapPicker && (
-                <div className="space-y-2">
-                  <LeafletMapPicker
-                    initialLat={lat || 9.0765}
-                    initialLng={lng || 7.3986}
-                    onConfirm={handleMapConfirm}
-                    onCancel={() => setShowMapPicker(false)}
+              {/* Google Maps Style Address Search Picker */}
+              {isSearchActive && (
+                <div className="bg-slate-50 border border-slate-200 rounded-3xl p-4 shadow-sm">
+                  <AddressSearchPicker
+                    initialAddress={address}
+                    initialLat={lat}
+                    initialLng={lng}
+                    onSelectLocation={handleAddressSelect}
+                    onCancel={hasValidCoordinates ? () => setShowAddressSearch(false) : undefined}
+                    autoFocus={true}
                   />
                 </div>
               )}
 
-              {/* Location indicator when granted */}
-              {hasLocationGranted && !showMapPicker && cartEntries.length > 0 && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-base">📍</span>
+              {/* Location indicator when granted & confirmed */}
+              {hasLocationGranted && !isSearchActive && cartEntries.length > 0 && (
+                <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs shrink-0 font-bold shadow-xs">
+                      📍
+                    </span>
                     <div className="truncate">
-                      <p className="font-extrabold text-slate-800 truncate">
-                        {address || 'Location Confirmed'}
+                      <p className="font-extrabold text-slate-900 truncate">
+                        {address || 'Delivery Location Set'}
                       </p>
-                      <p className="text-[10px] text-slate-400 font-mono">
-                        {lat.toFixed(4)}, {lng.toFixed(4)}
+                      <p className="text-[10px] text-emerald-700 font-mono">
+                        GPS: {lat.toFixed(4)}, {lng.toFixed(4)}
                       </p>
                     </div>
                   </div>
                   <button
-                    onClick={() => setShowMapPicker(true)}
-                    className="shrink-0 px-2.5 py-1 text-[11px] font-bold text-[#e31b23] bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                    onClick={() => setShowAddressSearch(true)}
+                    className="shrink-0 px-3 py-1.5 text-[11px] font-bold text-[#e31b23] bg-white hover:bg-red-50 border border-red-200 rounded-xl transition-colors shadow-xs"
                   >
-                    Edit Map
+                    Change
                   </button>
                 </div>
               )}
@@ -328,25 +332,29 @@ export default function CartDrawer() {
                   disabled={!canCheckout}
                   className="w-full py-4 font-black rounded-2xl text-sm sm:text-base uppercase tracking-wider flex items-center justify-center gap-2 bg-[#e31b23] hover:bg-[#c9151c] disabled:opacity-40 disabled:cursor-not-allowed text-white shadow-xl shadow-red-600/30 transition-all cursor-pointer"
                 >
-                  {locationStatus === 'denied' || locationStatus === 'unavailable' || !hasValidCoordinates
-                    ? '📍 Pick Location on Map to Checkout'
-                    : isOutOfZone
-                      ? '📍 Continue to Checkout'
-                      : quote
-                        ? `Checkout · ${formatPrice(quote.grandTotalKobo)} →`
-                        : 'Checkout →'}
+                  {locationStatus === 'requesting'
+                    ? '📍 Getting Real-Time Location…'
+                    : locationStatus === 'denied' || locationStatus === 'unavailable' || !hasValidCoordinates
+                      ? '📍 Enter Address to Checkout'
+                      : isOutOfZone
+                        ? '📍 Continue to Checkout'
+                        : quote
+                          ? `Checkout · ${formatPrice(quote.grandTotalKobo)} →`
+                          : 'Checkout →'}
                 </button>
 
                 {/* Clear Location Required Notice when denied */}
                 {(!hasValidCoordinates || locationStatus === 'denied' || locationStatus === 'unavailable') && (
                   <div className="text-center text-[11px] text-red-600 font-semibold space-y-1">
-                    <p>⚠️ Delivery location is required before checkout.</p>
-                    <button
-                      onClick={() => setShowMapPicker(true)}
-                      className="text-[#e31b23] font-black underline hover:opacity-80 transition-opacity"
-                    >
-                      Tap to open OpenStreetMap →
-                    </button>
+                    <p>⚠️ Delivery address is required before checkout.</p>
+                    {!isSearchActive && (
+                      <button
+                        onClick={() => setShowAddressSearch(true)}
+                        className="text-[#e31b23] font-black underline hover:opacity-80 transition-opacity"
+                      >
+                        Tap to search delivery address →
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

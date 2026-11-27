@@ -11,16 +11,6 @@ import {
   CustomerSession,
 } from '@/lib/api/backendClient';
 
-// Dynamically import Leaflet map picker for client-only rendering
-const LeafletMapPicker = dynamic(() => import('@/components/LeafletMapPicker'), {
-  ssr: false,
-  loading: () => (
-    <div className="h-64 bg-slate-100 animate-pulse rounded-2xl flex items-center justify-center text-xs text-slate-400">
-      Loading OpenStreetMap…
-    </div>
-  ),
-});
-
 interface SavedLocationItem {
   id?: string;
   label?: string;
@@ -86,9 +76,6 @@ export default function CheckoutModal({ onClose, onSuccess }: Props) {
   const [savedAddresses, setSavedAddresses] = useState<SavedLocationItem[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('custom');
   const [loadingAddresses, setLoadingAddresses] = useState(false);
-
-  // Map picker modal toggle
-  const [showMapPicker, setShowMapPicker] = useState(false);
 
   // Submission
   const [step, setStep] = useState<Step>('form');
@@ -279,6 +266,10 @@ export default function CheckoutModal({ onClose, onSuccess }: Props) {
       setSubmitError('Please enter or select a delivery address.');
       return;
     }
+    if (!landmark.trim()) {
+      setSubmitError('Please enter a nearby landmark (e.g. Opposite Central Mosque, Near Fuel Station).');
+      return;
+    }
 
     setStep('submitting');
     setSubmitError('');
@@ -356,7 +347,7 @@ export default function CheckoutModal({ onClose, onSuccess }: Props) {
             latitude: resolvedLat,
             longitude: resolvedLng,
           }),
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       // Initialize Flutterwave payment
@@ -420,22 +411,20 @@ export default function CheckoutModal({ onClose, onSuccess }: Props) {
                 <button
                   type="button"
                   onClick={() => setAuthTab('guest')}
-                  className={`flex-1 py-2 rounded-lg transition-all ${
-                    authTab === 'guest'
+                  className={`flex-1 py-2 rounded-lg transition-all ${authTab === 'guest'
                       ? 'bg-white text-slate-900 shadow-sm'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   ⚡ Fast Checkout (OTP)
                 </button>
                 <button
                   type="button"
                   onClick={() => setAuthTab('login')}
-                  className={`flex-1 py-2 rounded-lg transition-all ${
-                    authTab === 'login'
+                  className={`flex-1 py-2 rounded-lg transition-all ${authTab === 'login'
                       ? 'bg-white text-slate-900 shadow-sm'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   🔑 Returning Customer
                 </button>
@@ -446,10 +435,11 @@ export default function CheckoutModal({ onClose, onSuccess }: Props) {
                 <form onSubmit={handleLoginSubmit} className="space-y-3">
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                      Email or Phone
+                      Email or Phone <span className="text-[#e31b23]">*</span>
                     </label>
                     <input
                       type="text"
+                      required
                       placeholder="e.g. 08012345678 or name@domain.com"
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
@@ -458,10 +448,11 @@ export default function CheckoutModal({ onClose, onSuccess }: Props) {
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                      Password
+                      Password <span className="text-[#e31b23]">*</span>
                     </label>
                     <input
                       type="password"
+                      required
                       placeholder="Enter password"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
@@ -514,10 +505,11 @@ export default function CheckoutModal({ onClose, onSuccess }: Props) {
           {/* Full Name */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-              Full Name
+              Full Name <span className="text-[#e31b23]">*</span>
             </label>
             <input
               type="text"
+              required
               placeholder="e.g. Adaeze Okonkwo"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -529,11 +521,12 @@ export default function CheckoutModal({ onClose, onSuccess }: Props) {
           {/* Phone + OTP */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-              Phone Number
+              Phone Number <span className="text-[#e31b23]">*</span>
             </label>
             <div className="flex gap-2">
               <input
                 type="tel"
+                required
                 placeholder="08012345678"
                 value={phone}
                 onChange={(e) => {
@@ -613,11 +606,10 @@ export default function CheckoutModal({ onClose, onSuccess }: Props) {
                     <div
                       key={idStr}
                       onClick={() => handleSelectSavedAddress(item)}
-                      className={`cursor-pointer p-3 rounded-xl border transition-all text-left flex items-start gap-3 ${
-                        isSelected
+                      className={`cursor-pointer p-3 rounded-xl border transition-all text-left flex items-start gap-3 ${isSelected
                           ? 'border-[#e31b23] bg-red-50/30'
                           : 'border-slate-200 bg-white hover:border-slate-300'
-                      }`}
+                        }`}
                     >
                       <input
                         type="radio"
@@ -643,11 +635,10 @@ export default function CheckoutModal({ onClose, onSuccess }: Props) {
 
                 <div
                   onClick={() => setSelectedAddressId('custom')}
-                  className={`cursor-pointer p-3 rounded-xl border transition-all text-left flex items-center gap-3 ${
-                    selectedAddressId === 'custom'
+                  className={`cursor-pointer p-3 rounded-xl border transition-all text-left flex items-center gap-3 ${selectedAddressId === 'custom'
                       ? 'border-[#e31b23] bg-red-50/30'
                       : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
+                    }`}
                 >
                   <input
                     type="radio"
@@ -664,78 +655,13 @@ export default function CheckoutModal({ onClose, onSuccess }: Props) {
 
           {/* Delivery Address Input */}
           {(savedAddresses.length === 0 || selectedAddressId === 'custom') && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                  Delivery Address
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowMapPicker(!showMapPicker)}
-                  className="text-xs font-bold text-[#e31b23] hover:underline flex items-center gap-1"
-                >
-                  📍 {showMapPicker ? 'Hide Map' : 'Pick on Map'}
-                </button>
-              </div>
-
-              {/* Quick district buttons */}
-              <div className="flex gap-2 text-[11px]">
-                <span className="text-slate-400 font-medium">Quick spots:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLat(9.0765);
-                    setLng(7.3986);
-                    setAddressLocal('Central Business District, Abuja');
-                  }}
-                  className="text-[#e31b23] hover:underline font-semibold"
-                >
-                  CBD
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLat(9.0579);
-                    setLng(7.4951);
-                    setAddressLocal('Garki, Abuja');
-                  }}
-                  className="text-[#e31b23] hover:underline font-semibold"
-                >
-                  Garki
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLat(9.082);
-                    setLng(7.439);
-                    setAddressLocal('Wuse 2, Abuja');
-                  }}
-                  className="text-[#e31b23] hover:underline font-semibold"
-                >
-                  Wuse 2
-                </button>
-              </div>
-
-              {/* Interactive OpenStreetMap Leaflet Picker toggle */}
-              {showMapPicker && (
-                <div className="border border-slate-200 rounded-2xl overflow-hidden p-3 bg-slate-50 space-y-2">
-                  <p className="text-xs font-medium text-slate-600">
-                    Click anywhere on the map or tap a district below to set your exact delivery spot:
-                  </p>
-                  <LeafletMapPicker
-                    initialLat={lat || 9.0765}
-                    initialLng={lng || 7.3986}
-                    onLocationSelected={(resLat, resLng, resAddress) => {
-                      setLat(resLat);
-                      setLng(resLng);
-                      setAddressLocal(resAddress);
-                    }}
-                  />
-                </div>
-              )}
-
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                Delivery Address <span className="text-[#e31b23]">*</span>
+              </label>
               <input
                 type="text"
+                required
                 placeholder="Street address, building, or area"
                 value={address}
                 onChange={(e) => setAddressLocal(e.target.value)}
@@ -748,10 +674,11 @@ export default function CheckoutModal({ onClose, onSuccess }: Props) {
           {/* Landmark */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-              Landmark
+              Landmark <span className="text-[#e31b23]">*</span>
             </label>
             <input
               type="text"
+              required
               placeholder="e.g. Opposite City Park, Beside GTBank"
               value={landmark}
               onChange={(e) => setLandmarkLocal(e.target.value)}

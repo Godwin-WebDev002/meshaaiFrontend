@@ -258,7 +258,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
-  // Manual location setter (from Leaflet Map Picker)
+  // Manual location setter (from Address Search / Google-Maps style Picker)
   function setManualLocation(newLat: number, newLng: number, newAddress: string) {
     setLat(newLat);
     setLng(newLng);
@@ -267,6 +267,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem(STORAGE_LOC_KEY, JSON.stringify({ lat: newLat, lng: newLng, address: newAddress, landmark }));
     } catch { }
+
+    // Run delivery check for manual coordinates to update fulfillment mode and zone
+    fetch('/api/delivery/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ latitude: newLat, longitude: newLng }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.mode) setFulfillmentMode(data.mode);
+        if (data.scheduledFor?.local) setScheduledTime(data.scheduledFor.local);
+        if (data.serviceable === false && data.reason === 'OUT_OF_ZONE') {
+          setLocationStatus('out_of_zone');
+        }
+      })
+      .catch(() => { });
   }
 
   const setIsCartOpen = useCallback((open: boolean) => {
@@ -412,10 +428,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
    * we prefer that. The kobo param is a fallback for cart totals not tied to a preset.
    */
   const formatPrice = useCallback((kobo: number, presetId?: string) => {
-    // If called with a presetId, find the preset and use its backend-formatted price
+    // If called with a presetId, find the preset and use its backend-formatted price if currency matches
     if (presetId) {
       const preset = presets.find((p) => p.id === presetId);
-      if (preset?.priceFormatted) return preset.priceFormatted;
+      if (preset?.priceFormatted && (!preset.currencyCode || preset.currencyCode === currency)) {
+        return preset.priceFormatted;
+      }
     }
     // Fallback: format with current currency symbol
     const symbol = CURRENCY_SYMBOLS[currency] || '₦';

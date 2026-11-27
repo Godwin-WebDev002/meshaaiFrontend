@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function DishDetailModal({ preset, onClose }: Props) {
-  const { addToCart, cart, formatPrice } = useCart();
+  const { addToCart, cart, currency, formatPrice } = useCart();
   const [selectedExtras, setSelectedExtras] = useState<SelectedExtra[]>([]);
   const [qty, setQty] = useState(1);
 
@@ -77,7 +77,7 @@ export default function DishDetailModal({ preset, onClose }: Props) {
           </button>
           {/* Price badge */}
           <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-red-200 font-black text-amber-600 text-sm shadow-md">
-            {preset.priceFormatted || formatPrice(preset.priceKobo)}
+            {(preset.currencyCode === currency && preset.priceFormatted) || formatPrice(preset.priceKobo, preset.id)}
           </div>
         </div>
 

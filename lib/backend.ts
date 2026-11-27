@@ -33,6 +33,7 @@ export async function backendFetch(
 
   try {
     return await fetch(url, {
+      cache: 'no-store',
       ...options,
       signal: controller.signal,
       headers: {

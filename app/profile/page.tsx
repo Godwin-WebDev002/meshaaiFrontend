@@ -653,10 +653,11 @@ export default function ProfilePage() {
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                      Email or Phone
+                      Email or Phone <span className="text-[#e31b23]">*</span>
                     </label>
                     <input
                       type="text"
+                      required
                       placeholder="08012345678 or name@domain.com"
                       value={loginId}
                       onChange={(e) => setLoginId(e.target.value)}
@@ -665,11 +666,12 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                      Password
+                      Password <span className="text-[#e31b23]">*</span>
                     </label>
                     <div className="relative">
                       <input
                         type={showLoginPw ? "text" : "password"}
+                        required
                         placeholder="••••••••"
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
@@ -726,10 +728,11 @@ export default function ProfilePage() {
                 <form onSubmit={handleRegister} className="space-y-3.5">
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                      Full Name
+                      Full Name <span className="text-[#e31b23]">*</span>
                     </label>
                     <input
                       type="text"
+                      required
                       placeholder="Adaeze Okonkwo"
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
@@ -738,10 +741,11 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                      Phone Number
+                      Phone Number <span className="text-[#e31b23]">*</span>
                     </label>
                     <input
                       type="tel"
+                      required
                       placeholder="08012345678"
                       value={regPhone}
                       onChange={(e) => setRegPhone(e.target.value)}
@@ -750,10 +754,11 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                      Email Address
+                      Email Address <span className="text-[#e31b23]">*</span>
                     </label>
                     <input
                       type="email"
+                      required
                       placeholder="adaeze@example.com"
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
@@ -762,11 +767,12 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                      Password
+                      Password <span className="text-[#e31b23]">*</span>
                     </label>
                     <div className="relative">
                       <input
                         type={showRegPw ? "text" : "password"}
+                        required
                         placeholder="Choose a password"
                         value={regPassword}
                         onChange={(e) => setRegPassword(e.target.value)}

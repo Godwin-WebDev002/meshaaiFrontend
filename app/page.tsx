@@ -52,7 +52,7 @@ const homeFAQs: FAQ[] = [
 ];
 
 export default function CustomerHomePage() {
-  const { presets, cart, formatPrice } = useCart();
+  const { presets, cart, currency, formatPrice } = useCart();
   const [selectedPreset, setSelectedPreset] = useState<PresetMeal | null>(null);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
@@ -385,7 +385,7 @@ export default function CustomerHomePage() {
                   {/* Bottom Row: Price & Tap to customise & order button */}
                   <div className="flex flex-wrap sm:flex-nowrap items-center justify-between pt-3 border-t border-slate-200/60 mt-auto gap-2">
                     <span className="font-black text-slate-900 text-base sm:text-lg shrink-0">
-                      {preset.priceFormatted || formatPrice(preset.priceKobo)}
+                      {(preset.currencyCode === currency && preset.priceFormatted) || formatPrice(preset.priceKobo, preset.id)}
                     </span>
 
                     <motion.button
